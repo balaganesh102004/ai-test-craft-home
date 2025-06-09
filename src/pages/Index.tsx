@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,15 +227,6 @@ const Index = () => {
                   onClick={handleBackToProjects}
                   className="cursor-pointer hover:text-blue-600"
                 >
-                  Projects
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink 
-                  onClick={handleBackToModules}
-                  className="cursor-pointer hover:text-blue-600"
-                >
                   {selectedProject.name}
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -244,6 +236,11 @@ const Index = () => {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+
+          {/* Module Heading */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-muted-foreground">Module</h2>
+          </div>
 
           {/* Module Header */}
           <div className="flex items-center justify-between mb-8">
@@ -365,19 +362,36 @@ const Index = () => {
           <Breadcrumb className="mb-6">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink 
-                  onClick={handleBackToProjects}
-                  className="cursor-pointer hover:text-blue-600"
-                >
-                  Projects
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
                 <BreadcrumbPage>{selectedProject.name}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+
+          {/* Quick Stats */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-blue-600">{selectedProject.modules}</div>
+                <div className="text-sm text-muted-foreground">Total Modules</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {projectModules.reduce((sum, m) => sum + m.testCases, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Test Cases</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {selectedProject.lastUpdated}
+                </div>
+                <div className="text-sm text-muted-foreground">Last Updated</div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Project Header */}
           <div className="flex items-center justify-between mb-8">
@@ -579,14 +593,33 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        {/* Breadcrumb Navigation */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Projects</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        {/* Quick Stats */}
+        {projects.length > 0 && (
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-blue-600">{projects.length}</div>
+                <div className="text-sm text-muted-foreground">Total Projects</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {projects.reduce((sum, p) => sum + p.modules, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Modules</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {projects.reduce((sum, p) => sum + p.testCases, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Test Cases</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8">
@@ -743,34 +776,6 @@ const Index = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        )}
-
-        {/* Quick Stats */}
-        {projects.length > 0 && (
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <div className="text-2xl font-bold text-blue-600">{projects.length}</div>
-                <div className="text-sm text-muted-foreground">Total Projects</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {projects.reduce((sum, p) => sum + p.modules, 0)}
-                </div>
-                <div className="text-sm text-muted-foreground">Total Modules</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {projects.reduce((sum, p) => sum + p.testCases, 0)}
-                </div>
-                <div className="text-sm text-muted-foreground">Test Cases</div>
-              </CardContent>
-            </Card>
           </div>
         )}
       </main>
