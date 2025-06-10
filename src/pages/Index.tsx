@@ -1,419 +1,784 @@
 
-import { useState } from "react";
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Plus, Settings, History, FolderOpen, MoreVertical, Edit, Trash2, ExternalLink, FileText, Upload } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Plus, FolderOpen, FileText, TestTube, Image, FileCheck } from "lucide-react";
-import { useProjects, useCreateProject } from "@/hooks/useProjects";
-import { useModules, useCreateModule } from "@/hooks/useModules";
-import { useGenerateTestCases } from "@/hooks/useTestCases";
+import { useToast } from "@/hooks/use-toast";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
-interface Project {
-  id: number;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Module {
-  id: number;
-  project_id: number;
-  name: string;
-  url: string;
-  description: string;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-}
+// Mock data for projects
+const mockProjects = [
+  {
+    id: 1,
+    name: "E-commerce Website Testing",
+    description: "Comprehensive testing for online shopping platform",
+    url: "https://example-shop.com",
+    tags: ["e-commerce", "web", "critical"],
+    modules: 5,
+    testCases: 23,
+    lastUpdated: "2024-01-15"
+  },
+  {
+    id: 2,
+    name: "Mobile Banking App",
+    description: "Security and functionality testing for banking application",
+    url: "https://bank-app.com",
+    tags: ["banking", "mobile", "security"],
+    modules: 8,
+    testCases: 45,
+    lastUpdated: "2024-01-12"
+  },
+  {
+    id: 3,
+    name: "Social Media Platform",
+    description: "User interaction and performance testing",
+    url: "https://social-platform.com",
+    tags: ["social", "performance", "ui"],
+    modules: 12,
+    testCases: 67,
+    lastUpdated: "2024-01-10"
+  }
+];
 
 const Index = () => {
-  const [view, setView] = useState<'projects' | 'modules' | 'module-detail'>('projects');
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
-  const [createProjectOpen, setCreateProjectOpen] = useState(false);
-  const [createModuleOpen, setCreateModuleOpen] = useState(false);
-  const [generateTestCasesOpen, setGenerateTestCasesOpen] = useState(false);
+  const [projects, setProjects] = useState(mockProjects);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateModuleDialogOpen, setIsCreateModuleDialogOpen] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [modules, setModules] = useState([]);
+  const [newProject, setNewProject] = useState({ 
+    name: '', 
+    description: '', 
+    url: '', 
+    tags: '' 
+  });
+  const [newModule, setNewModule] = useState({
+    name: '',
+    url: '',
+    description: '',
+    tags: ''
+  });
+  const { toast } = useToast();
 
-  // API hooks
-  const { data: projects = [], isLoading: projectsLoading } = useProjects();
-  const { data: modules = [], isLoading: modulesLoading } = useModules(selectedProject?.id);
-  const createProjectMutation = useCreateProject();
-  const createModuleMutation = useCreateModule();
-  const generateTestCasesMutation = useGenerateTestCases();
-
-  // Form states
-  const [projectForm, setProjectForm] = useState({ name: "", description: "" });
-  const [moduleForm, setModuleForm] = useState({ name: "", url: "", description: "", tags: "" });
-
-  const handleCreateProject = async () => {
-    if (!projectForm.name.trim()) return;
-    
-    try {
-      await createProjectMutation.mutateAsync({
-        name: projectForm.name,
-        description: projectForm.description,
+  const handleCreateProject = () => {
+    if (!newProject.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Project name is required",
+        variant: "destructive"
       });
-      setProjectForm({ name: "", description: "" });
-      setCreateProjectOpen(false);
-    } catch (error) {
-      console.error('Failed to create project:', error);
+      return;
     }
+
+    const project = {
+      id: Date.now(),
+      name: newProject.name,
+      description: newProject.description,
+      url: newProject.url,
+      tags: newProject.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      modules: 0,
+      testCases: 0,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+
+    setProjects([...projects, project]);
+    setNewProject({ name: '', description: '', url: '', tags: '' });
+    setIsCreateDialogOpen(false);
+    
+    toast({
+      title: "Success",
+      description: "Project created successfully"
+    });
   };
 
-  const handleCreateModule = async () => {
-    if (!moduleForm.name.trim() || !selectedProject) return;
-    
-    try {
-      await createModuleMutation.mutateAsync({
-        project_id: selectedProject.id,
-        name: moduleForm.name,
-        url: moduleForm.url,
-        description: moduleForm.description,
-        tags: moduleForm.tags ? moduleForm.tags.split(',').map(tag => tag.trim()) : [],
+  const handleCreateModule = () => {
+    if (!newModule.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Module name is required",
+        variant: "destructive"
       });
-      setModuleForm({ name: "", url: "", description: "", tags: "" });
-      setCreateModuleOpen(false);
-    } catch (error) {
-      console.error('Failed to create module:', error);
+      return;
     }
+
+    const module = {
+      id: Date.now(),
+      name: newModule.name,
+      description: newModule.description,
+      url: newModule.url,
+      tags: newModule.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      testCases: 0,
+      lastUpdated: new Date().toISOString().split('T')[0],
+      projectId: selectedProject.id
+    };
+
+    setModules([...modules, module]);
+    
+    // Update project modules count
+    setProjects(projects.map(p => 
+      p.id === selectedProject.id 
+        ? { ...p, modules: p.modules + 1 }
+        : p
+    ));
+
+    setNewModule({ name: '', url: '', description: '', tags: '' });
+    setIsCreateModuleDialogOpen(false);
+    
+    toast({
+      title: "Success",
+      description: "Module created successfully"
+    });
   };
 
-  const handleGenerateTestCases = async (type: 'images' | 'requirements') => {
-    if (!selectedModule) return;
-    
-    try {
-      await generateTestCasesMutation.mutateAsync({
-        moduleId: selectedModule.id,
-        type,
-        data: {}, // Additional data can be added here
-      });
-      setGenerateTestCasesOpen(false);
-    } catch (error) {
-      console.error('Failed to generate test cases:', error);
-    }
+  const handleDeleteProject = (id: number) => {
+    setProjects(projects.filter(p => p.id !== id));
+    toast({
+      title: "Success",
+      description: "Project deleted successfully"
+    });
   };
 
-  const getBreadcrumbs = () => {
-    const items = [];
-    
-    if (view === 'modules' && selectedProject) {
-      items.push({ label: selectedProject.name, onClick: () => setView('projects') });
-    }
-    
-    if (view === 'module-detail' && selectedProject && selectedModule) {
-      items.push({ label: selectedProject.name, onClick: () => setView('projects') });
-      items.push({ label: selectedModule.name, onClick: () => setView('modules') });
-    }
-    
-    return items;
+  const handleProjectClick = (project) => {
+    setSelectedProject(project);
+    setSelectedModule(null);
   };
 
-  if (projectsLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
+  const handleModuleClick = (module) => {
+    setSelectedModule(module);
+  };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
-        {/* Navigation */}
-        <div className="mb-6">
-          <Breadcrumb>
+  const handleBackToProjects = () => {
+    setSelectedProject(null);
+    setSelectedModule(null);
+  };
+
+  const handleBackToModules = () => {
+    setSelectedModule(null);
+  };
+
+  const handleGenerateWithImages = () => {
+    toast({
+      title: "Generate with Images",
+      description: "Image-based test case generation started"
+    });
+    setIsGenerateDialogOpen(false);
+  };
+
+  const handleGenerateWithRequirements = () => {
+    toast({
+      title: "Generate with Requirements",
+      description: "Requirements-based test case generation started"
+    });
+    setIsGenerateDialogOpen(false);
+  };
+
+  const projectModules = modules.filter(m => m.projectId === selectedProject?.id);
+
+  // If a module is selected, show module detail view
+  if (selectedModule) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Navigation Bar */}
+        <header className="border-b bg-white shadow-sm">
+          <div className="flex h-16 items-center justify-between px-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="text-2xl font-bold text-blue-600">AI</div>
+                <div className="text-xl font-semibold text-red-600">QA COPILOT</div>
+              </div>
+            </div>
+            
+            <nav className="flex items-center space-x-8">
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <FolderOpen className="h-4 w-4" />
+                <span>Projects</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <span className="text-yellow-500">⚡</span>
+                <span>Test Runs</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </Button>
+            </nav>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-6 py-8">
+          {/* Breadcrumb Navigation */}
+          <Breadcrumb className="mb-6">
             <BreadcrumbList>
-              {getBreadcrumbs().map((item, index) => (
-                <BreadcrumbItem key={index}>
-                  <button 
-                    onClick={item.onClick}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {item.label}
-                  </button>
-                  <BreadcrumbSeparator />
-                </BreadcrumbItem>
-              ))}
               <BreadcrumbItem>
-                <BreadcrumbPage>
-                  {view === 'projects' ? 'Dashboard' : 
-                   view === 'modules' ? 'Modules' : 'Module'}
-                </BreadcrumbPage>
+                <BreadcrumbLink 
+                  onClick={handleBackToProjects}
+                  className="cursor-pointer hover:text-blue-600"
+                >
+                  {selectedProject.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{selectedModule.name}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-        </div>
 
-        {/* Dashboard Counts */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{projects.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Modules</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{modules.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Test Cases</CardTitle>
-              <TestTube className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">0</div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Module Heading */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-muted-foreground">Module</h2>
+          </div>
 
-        {/* Projects View */}
-        {view === 'projects' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-3xl font-bold text-foreground">Projects</h1>
-              <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Project
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
-                    <DialogDescription>
-                      Create a new project to organize your modules and test cases.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="project-name">Project Name</Label>
-                      <Input
-                        id="project-name"
-                        value={projectForm.name}
-                        onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Enter project name"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="project-description">Description</Label>
-                      <Textarea
-                        id="project-description"
-                        value={projectForm.description}
-                        onChange={(e) => setProjectForm(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Enter project description"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      onClick={handleCreateProject}
-                      disabled={!projectForm.name.trim() || createProjectMutation.isPending}
-                    >
-                      {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+          {/* Module Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">{selectedModule.name}</h1>
+              <p className="text-muted-foreground mb-4">{selectedModule.description}</p>
+              {selectedModule.url && (
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                  <ExternalLink className="h-4 w-4" />
+                  <a href={selectedModule.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
+                    {selectedModule.url}
+                  </a>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {selectedModule.tags.map((tag, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
             </div>
+            
+            <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Generate</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Generate Test Cases</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <p className="text-muted-foreground">Choose how you want to generate test cases:</p>
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={handleGenerateWithImages}
+                      className="w-full flex items-center justify-start space-x-3 h-auto p-4"
+                      variant="outline"
+                    >
+                      <FileText className="h-5 w-5" />
+                      <div className="text-left">
+                        <div className="font-medium">Generate with Images</div>
+                        <div className="text-sm text-muted-foreground">Upload screenshots or UI mockups to generate test cases</div>
+                      </div>
+                    </Button>
+                    <Button 
+                      onClick={handleGenerateWithRequirements}
+                      className="w-full flex items-center justify-start space-x-3 h-auto p-4"
+                      variant="outline"
+                    >
+                      <Upload className="h-5 w-5" />
+                      <div className="text-left">
+                        <div className="font-medium">Generate with Requirements</div>
+                        <div className="text-sm text-muted-foreground">Upload requirement documents to generate test cases</div>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
+          {/* Test Cases Section */}
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📝</div>
+            <h3 className="text-xl font-semibold mb-2">No test cases yet</h3>
+            <p className="text-muted-foreground mb-6">Generate your first test cases using images or requirements</p>
+            <Button onClick={() => setIsGenerateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Generate Test Cases
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // If a project is selected, show modules view
+  if (selectedProject) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Navigation Bar */}
+        <header className="border-b bg-white shadow-sm">
+          <div className="flex h-16 items-center justify-between px-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="text-2xl font-bold text-blue-600">AI</div>
+                <div className="text-xl font-semibold text-red-600">QA COPILOT</div>
+              </div>
+            </div>
+            
+            <nav className="flex items-center space-x-8">
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <FolderOpen className="h-4 w-4" />
+                <span>Projects</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <span className="text-yellow-500">⚡</span>
+                <span>Test Runs</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </Button>
+              <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </Button>
+            </nav>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-6 py-8">
+          {/* Breadcrumb Navigation */}
+          <Breadcrumb className="mb-6">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage>{selectedProject.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Quick Stats */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-blue-600">{selectedProject.modules}</div>
+                <div className="text-sm text-muted-foreground">Total Modules</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {projectModules.reduce((sum, m) => sum + m.testCases, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Test Cases</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {selectedProject.lastUpdated}
+                </div>
+                <div className="text-sm text-muted-foreground">Last Updated</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Project Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">{selectedProject.name}</h1>
+              <p className="text-muted-foreground mb-4">{selectedProject.description}</p>
+              {selectedProject.url && (
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                  <ExternalLink className="h-4 w-4" />
+                  <a href={selectedProject.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
+                    {selectedProject.url}
+                  </a>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {selectedProject.tags.map((tag, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            <Dialog open={isCreateModuleDialogOpen} onOpenChange={setIsCreateModuleDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Module
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Module</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label htmlFor="module-name">Module Name</Label>
+                    <Input
+                      id="module-name"
+                      value={newModule.name}
+                      onChange={(e) => setNewModule({...newModule, name: e.target.value})}
+                      placeholder="Enter module name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="module-url">URL</Label>
+                    <Input
+                      id="module-url"
+                      value={newModule.url}
+                      onChange={(e) => setNewModule({...newModule, url: e.target.value})}
+                      placeholder="https://example.com/module"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="module-description">Description</Label>
+                    <Textarea
+                      id="module-description"
+                      value={newModule.description}
+                      onChange={(e) => setNewModule({...newModule, description: e.target.value})}
+                      placeholder="Describe this module"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="module-tags">Tags</Label>
+                    <Input
+                      id="module-tags"
+                      value={newModule.tags}
+                      onChange={(e) => setNewModule({...newModule, tags: e.target.value})}
+                      placeholder="login, authentication, security (comma separated)"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button variant="outline" onClick={() => setIsCreateModuleDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateModule}>
+                      Create Module
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Modules Grid */}
+          {projectModules.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📄</div>
+              <h3 className="text-xl font-semibold mb-2">No modules yet</h3>
+              <p className="text-muted-foreground mb-6">Create your first module to start generating test cases</p>
+              <Button onClick={() => setIsCreateModuleDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Module
+              </Button>
+            </div>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((project) => (
-                <Card key={project.id} className="cursor-pointer hover:shadow-lg transition-shadow border-border">
-                  <CardHeader>
-                    <CardTitle className="text-foreground">{project.name}</CardTitle>
-                    <CardDescription>{project.description}</CardDescription>
+              {projectModules.map((module) => (
+                <Card 
+                  key={module.id} 
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleModuleClick(module)}
+                >
+                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg font-semibold mb-1">
+                        {module.name}
+                      </CardTitle>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {module.tags.map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </CardHeader>
                   <CardContent>
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => {
-                        setSelectedProject(project);
-                        setView('modules');
-                      }}
-                    >
-                      View Modules
-                    </Button>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                      {module.description}
+                    </p>
+                    {module.url && (
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
+                        <ExternalLink className="h-4 w-4" />
+                        <span className="truncate">{module.url}</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">{module.testCases}</span>
+                        <div className="text-muted-foreground">Test Cases</div>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="text-xs text-muted-foreground">
+                        Last updated: {module.lastUpdated}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Modules View */}
-        {view === 'modules' && selectedProject && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-3xl font-bold text-foreground">Modules</h1>
-              <Dialog open={createModuleOpen} onOpenChange={setCreateModuleOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Module
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Module</DialogTitle>
-                    <DialogDescription>
-                      Create a new module for {selectedProject.name}.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="module-name">Module Name</Label>
-                      <Input
-                        id="module-name"
-                        value={moduleForm.name}
-                        onChange={(e) => setModuleForm(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Enter module name"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="module-url">URL</Label>
-                      <Input
-                        id="module-url"
-                        value={moduleForm.url}
-                        onChange={(e) => setModuleForm(prev => ({ ...prev, url: e.target.value }))}
-                        placeholder="Enter module URL"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="module-description">Description</Label>
-                      <Textarea
-                        id="module-description"
-                        value={moduleForm.description}
-                        onChange={(e) => setModuleForm(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Enter module description"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="module-tags">Tags (comma-separated)</Label>
-                      <Input
-                        id="module-tags"
-                        value={moduleForm.tags}
-                        onChange={(e) => setModuleForm(prev => ({ ...prev, tags: e.target.value }))}
-                        placeholder="Enter tags separated by commas"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      onClick={handleCreateModule}
-                      disabled={!moduleForm.name.trim() || createModuleMutation.isPending}
-                    >
-                      {createModuleMutation.isPending ? 'Creating...' : 'Create Module'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {modulesLoading ? (
-                <div>Loading modules...</div>
-              ) : (
-                modules.map((module) => (
-                  <Card key={module.id} className="cursor-pointer hover:shadow-lg transition-shadow border-border">
-                    <CardHeader>
-                      <CardTitle className="text-foreground">{module.name}</CardTitle>
-                      <CardDescription>{module.description}</CardDescription>
-                      {module.url && (
-                        <p className="text-sm text-muted-foreground">{module.url}</p>
-                      )}
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {module.tags?.map((tag, index) => (
-                          <Badge key={index} variant="secondary">{tag}</Badge>
-                        ))}
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedModule(module);
-                          setView('module-detail');
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Module Detail View */}
-        {view === 'module-detail' && selectedModule && (
-          <div>
-            <h2 className="text-xl font-semibold text-muted-foreground mb-4">Module</h2>
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-foreground mb-2">{selectedModule.name}</h1>
-              <p className="text-muted-foreground mb-4">{selectedModule.description}</p>
-              {selectedModule.url && (
-                <p className="text-sm text-muted-foreground mb-4">URL: {selectedModule.url}</p>
-              )}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {selectedModule.tags?.map((tag, index) => (
-                  <Badge key={index} variant="secondary">{tag}</Badge>
-                ))}
-              </div>
-              <Dialog open={generateTestCasesOpen} onOpenChange={setGenerateTestCasesOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <TestTube className="mr-2 h-4 w-4" />
-                    Generate Test Cases
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Generate Test Cases</DialogTitle>
-                    <DialogDescription>
-                      Choose how you want to generate test cases for {selectedModule.name}.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex flex-col items-center justify-center"
-                      onClick={() => handleGenerateTestCases('images')}
-                      disabled={generateTestCasesMutation.isPending}
-                    >
-                      <Image className="h-8 w-8 mb-2" />
-                      Generate from Images
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex flex-col items-center justify-center"
-                      onClick={() => handleGenerateTestCases('requirements')}
-                      disabled={generateTestCasesMutation.isPending}
-                    >
-                      <FileCheck className="h-8 w-8 mb-2" />
-                      Generate from Requirements
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        )}
+          )}
+        </main>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Navigation Bar */}
+      <header className="border-b bg-white shadow-sm">
+        <div className="flex h-16 items-center justify-between px-6">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="text-2xl font-bold text-blue-600">AI</div>
+              <div className="text-xl font-semibold text-red-600">QA COPILOT</div>
+            </div>
+          </div>
+          
+          <nav className="flex items-center space-x-8">
+            <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+              <FolderOpen className="h-4 w-4" />
+              <span>Projects</span>
+            </Button>
+            <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+              <span className="text-yellow-500">⚡</span>
+              <span>Test Runs</span>
+            </Button>
+            <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+              <History className="h-4 w-4" />
+              <span>History</span>
+            </Button>
+            <Button variant="ghost" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </Button>
+          </nav>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        {/* Quick Stats */}
+        {projects.length > 0 && (
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-blue-600">{projects.length}</div>
+                <div className="text-sm text-muted-foreground">Total Projects</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {projects.reduce((sum, p) => sum + p.modules, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Modules</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {projects.reduce((sum, p) => sum + p.testCases, 0)}
+                </div>
+                <div className="text-sm text-muted-foreground">Test Cases</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Header Section */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Test Projects</h1>
+            <p className="text-muted-foreground">
+              Manage your AI-powered test case generation projects
+            </p>
+          </div>
+          
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Create New Project</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="project-name">Project Name</Label>
+                  <Input
+                    id="project-name"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                    placeholder="Enter project name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project-description">Description</Label>
+                  <Textarea
+                    id="project-description"
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                    placeholder="Describe your testing project"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project-url">URL</Label>
+                  <Input
+                    id="project-url"
+                    value={newProject.url}
+                    onChange={(e) => setNewProject({...newProject, url: e.target.value})}
+                    placeholder="https://example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project-tags">Tags</Label>
+                  <Input
+                    id="project-tags"
+                    value={newProject.tags}
+                    onChange={(e) => setNewProject({...newProject, tags: e.target.value})}
+                    placeholder="e-commerce, web, critical (comma separated)"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateProject}>
+                    Create Project
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Projects Grid */}
+        {projects.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📋</div>
+            <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
+            <p className="text-muted-foreground mb-6">Create your first test project to get started</p>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Project
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project) => (
+              <Card 
+                key={project.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleProjectClick(project)}
+              >
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg font-semibold mb-1">
+                      {project.name}
+                    </CardTitle>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {project.tags.map((tag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(project.id);
+                        }}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {project.description}
+                  </p>
+                  {project.url && (
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
+                      <ExternalLink className="h-4 w-4" />
+                      <span className="truncate">{project.url}</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">{project.modules}</span>
+                      <div className="text-muted-foreground">Modules</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">{project.testCases}</span>
+                      <div className="text-muted-foreground">Test Cases</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-xs text-muted-foreground">
+                      Last updated: {project.lastUpdated}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 };
